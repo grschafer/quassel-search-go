@@ -1,0 +1,38 @@
+<html>
+<head>
+  <link href="/assets/app.css" media="all" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Search Quassel Logs</h1>
+
+<form action="/search/" method="GET">
+  <input type="text" name="n" placeholder="Search" autofocus />
+</form>
+
+<hr />
+
+<section class="results" data-needle="{{ .Needle }}">
+<h2>Search results for {{ .Needle }}</h2>
+{{ range .Messages }}
+  <div class="match">
+    <div class="before context"></div>
+    <div class="matching-line">
+      <div class="message" data-messageid="{{ .MessageId }}">
+        <span class="channel">{{.Channel}}</span>
+        <span class="time">{{.Time}}</span>
+        <span class="sender">{{.Sender}}</span>
+        <span class="text">{{.Text}}</span>
+      </div>
+    </div>
+    <div class="after context"></div>
+  </div>
+{{ end }}
+</section>
+
+
+</body>
+<script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+<script src="/assets/jquery.highlight.js"></script>
+<script src="/assets/app.js"></script>
+</html>

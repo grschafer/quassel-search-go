@@ -11,50 +11,184 @@ https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
 package main
 
 import (
+  "strconv"
+  "encoding/json"
+  "path"
   "net/http"
   "html/template"
   "log"
+  "time"
   "fmt"
   "database/sql"
   _ "github.com/mattn/go-sqlite3"
 )
 
-type Message struct {
+type resultSet struct {
+  Needle string
+  Messages []message
+}
+type message struct {
+  MessageId int
   Channel string
-  Time time
+  Time time.Time
   Sender string
-  Message string
+  Text string
 }
 
 // Database
+var db *sql.DB
 
+// TODO: return error
+func searchResults(needle string) (resultSet) {
+  sql_needle := "%" + needle + "%"
+  rows, err := db.Query("select messageid,buffercname,sender,time,type,message from backlog natural join sender natural join buffer where message like ?", sql_needle)
+  // TODO: more error checking! return error to handler
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer rows.Close()
+
+  results := resultSet{Needle: needle, Messages: make([]message, 0)}
+  for rows.Next() {
+    var messageid, msgtype int
+    var msgtime int64
+    var buffercname, sender, msg string
+    rows.Scan(&messageid, &buffercname, &sender, &msgtime, &msgtype, &msg)
+    if msgtype == 1 {
+      //fmt.Println(buffercname, msgtime, sender, msg)
+      m := message{MessageId: messageid,
+                   Channel: buffercname,
+                   Time: time.Unix(msgtime, 0),
+                   Sender: sender,
+                   Text: msg}
+      results.Messages = append(results.Messages, m)
+    }
+  }
+  fmt.Println("searched for ", needle, " got results: ", len(results.Messages))
+  return results
+}
+
+/*
+TODO: make these into constants
+direction values: -1 = before, 1 = after
+*/
+var dirComparators = map[int]string{
+  -1: "<",
+  1: ">",
+}
+var dirSort = map[int]string{
+  -1: "desc",
+  1: "asc",
+}
+func messageContext(messageId int, linesToFetch int, direction int) []message {
+  row := db.QueryRow("select bufferid from backlog where messageid = ?", messageId)
+  var bufferid int
+  err := row.Scan(&bufferid)
+  if err != nil {
+    // TODO: return error (ie - no rows in result set)
+    log.Fatal(err)
+  }
+
+  query := fmt.Sprintf(`select messageid,buffercname,sender,time,type,message
+                        from backlog
+                        natural join sender
+                        natural join buffer
+                        where messageid %s ?
+                          and bufferid = ?
+                          and type = 1
+                        order by messageid %s
+                        limit ?`, dirComparators[direction], dirSort[direction])
+  rows, err := db.Query(query, messageId, bufferid, linesToFetch)
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer rows.Close()
+
+  results := make([]message, 0)
+  for rows.Next() {
+    var messageid, msgtype int
+    var msgtime int64
+    var buffercname, sender, msg string
+    rows.Scan(&messageid, &buffercname, &sender, &msgtime, &msgtype, &msg)
+    if msgtype == 1 {
+      //fmt.Println(buffercname, msgtime, sender, msg)
+      m := message{MessageId: messageid,
+                   Channel: buffercname,
+                   Time: time.Unix(msgtime, 0),
+                   Sender: sender,
+                   Text: msg}
+      results = append(results, m)
+    }
+  }
+  return results
+}
 
 // Web server
+func tmplPath(tmpl string) string {
+  return path.Join("templates", tmpl)
+}
+var templatePaths = []string{tmplPath("index.html"), tmplPath("search.html")}
+var templates = template.Must(template.ParseFiles(templatePaths...))
+func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
+  err := templates.ExecuteTemplate(w, tmpl + ".html", data)
+  if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+  }
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+  fmt.Println("indexHandler")
+  renderTemplate(w, "index", nil)
+}
+
+func searchHandler(w http.ResponseWriter, r *http.Request) {
+  fmt.Println("searchHandler")
+  needle := r.FormValue("n")
+  // call db stuff
+  results := searchResults(needle)
+  fmt.Println(r)
+  fmt.Println(results)
+  fmt.Println()
+  renderTemplate(w, "search", results)
+}
+
+func ajaxContextHandler(w http.ResponseWriter, r *http.Request) {
+  // get request data: direction, from msgId, # lines
+  // buffer to get data from is implied in msgId
+  fmt.Println("ajaxContextHandler")
+  messageId, _ := strconv.Atoi(r.FormValue("messageId"))
+  linesToFetch, _ := strconv.Atoi(r.FormValue("linesToFetch"))
+  direction, _ := strconv.Atoi(r.FormValue("direction"))
+  // call db stuff
+  results := messageContext(messageId, linesToFetch, direction)
+  fmt.Println(r)
+  fmt.Println(results)
+  jsres, err := json.Marshal(results)
+  fmt.Println("err:", err)
+  fmt.Println(jsres)
+  fmt.Println()
+  w.Header().Set("Content-Type", "application/json")
+  w.Write(jsres)
+}
 
 
 
 // Main
 
 func main() {
-  db, err := sql.Open("sqlite3", "quassel-storage.sqlite")
+  var err error
+  db, err = sql.Open("sqlite3", "quassel-storage.sqlite")
   if err != nil {
     log.Fatal(err)
   }
   defer db.Close()
 
-  // TODO: join with senders table?
-  rows, err := db.Query("select buffercname,sender,time,type,message from backlog natural join sender natural join buffer")
-  if err != nil {
-    log.Fatal(err)
-  }
-  defer rows.Close()
-  for rows.Next() {
-    var time, msgtype int
-    var buffercname, sender, msg string
-    rows.Scan(&buffercname, &sender, &time, &msgtype, &msg)
-    if msgtype == 1 {
-      fmt.Println(buffercname, time, sender, msg)
-    }
-  }
+  res := searchResults("blah")
+  fmt.Println(res)
 
+  http.HandleFunc("/", indexHandler)
+  http.HandleFunc("/search/", searchHandler)
+  http.HandleFunc("/context/", ajaxContextHandler)
+  http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+  http.ListenAndServe(":8080", nil)
 }
