@@ -1,14 +1,17 @@
 <html>
 <head>
   <link href="/assets/app.css" media="all" rel="stylesheet" />
+  <link href='http://fonts.googleapis.com/css?family=Raleway' rel='stylesheet' type='text/css'>
 </head>
 <body>
 
-<h1>Search Quassel Logs</h1>
+<div class="centered flatten">
+  <h1>Search Quassel Logs</h1>
+  <form action="/search/" method="GET">
+    <input type="text" name="n" placeholder="Search" autofocus />
+  </form>
+</div>
 
-<form action="/search/" method="GET">
-  <input type="text" name="n" placeholder="Search" autofocus />
-</form>
 
 <hr />
 
@@ -19,15 +22,24 @@
   <div class="channel">
   {{ range .Messages }}
     <div class="match">
+      <div class="before expand">expand</div>
       <div class="before context"></div>
       <div class="matching-line">
         <div class="message" data-messageid="{{ .MessageId }}">
-          <span class="time">{{.Time}}</span>
-          <span class="sender">{{.Sender}}</span>
+          <span class="time">
+            <script>
+              var d = new Date("{{.Time}}");
+              document.scripts[document.scripts.length - 1].parentNode.textContent = d.toLocaleString();
+            </script>
+          </span>
+          {{ with .Sender }}
+            <span class="sender" title="{{.FullIdent}}">{{.Username}}</span>
+          {{ end }}
           <span class="text">{{.Text}}</span>
         </div>
       </div>
       <div class="after context"></div>
+      <div class="after expand">expand</div>
     </div>
   {{ end }}
   </div>

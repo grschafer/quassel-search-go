@@ -11,6 +11,7 @@ https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
 package main
 
 import (
+  "regexp"
   "strconv"
   "encoding/json"
   "path"
@@ -31,10 +32,24 @@ type channelResult struct {
   Channel string
   Messages []message
 }
+type sender struct {
+  Username string
+  FullIdent string
+}
+var re = regexp.MustCompile("(.*)!~?(.*)")
+func makeSender(rawSender string) sender {
+  fmt.Println(rawSender)
+  m := re.FindStringSubmatch(rawSender)
+  fmt.Println(m)
+  if len(m) == 3 {
+    return sender{m[1], m[2]}
+  }
+  return sender{rawSender, rawSender}
+}
 type message struct {
   MessageId int
   Time time.Time
-  Sender string
+  Sender sender
   Text string
 }
 
@@ -56,13 +71,13 @@ func searchResults(needle string) (resultSet) {
   for rows.Next() {
     var messageid, msgtype int
     var msgtime int64
-    var buffercname, sender, msg string
-    rows.Scan(&messageid, &buffercname, &sender, &msgtime, &msgtype, &msg)
+    var buffercname, msgSender, msg string
+    rows.Scan(&messageid, &buffercname, &msgSender, &msgtime, &msgtype, &msg)
     if msgtype == 1 {
-      //fmt.Println(buffercname, msgtime, sender, msg)
+      //fmt.Println(buffercname, msgtime, msgSender, msg)
       m := message{MessageId: messageid,
                    Time: time.Unix(msgtime, 0),
-                   Sender: sender,
+                   Sender: makeSender(msgSender),
                    Text: msg}
       channels[buffercname] = append(channels[buffercname], m)
     }
@@ -115,13 +130,13 @@ func messageContext(messageId int, linesToFetch int, direction int) []message {
   for rows.Next() {
     var messageid, msgtype int
     var msgtime int64
-    var buffercname, sender, msg string
-    rows.Scan(&messageid, &buffercname, &sender, &msgtime, &msgtype, &msg)
+    var buffercname, msgSender, msg string
+    rows.Scan(&messageid, &buffercname, &msgSender, &msgtime, &msgtype, &msg)
     if msgtype == 1 {
-      //fmt.Println(buffercname, msgtime, sender, msg)
+      //fmt.Println(buffercname, msgtime, msgSender, msg)
       m := message{MessageId: messageid,
                    Time: time.Unix(msgtime, 0),
-                   Sender: sender,
+                   Sender: makeSender(msgSender),
                    Text: msg}
       results = append(results, m)
     }

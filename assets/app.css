@@ -1,22 +1,122 @@
+/* global */
+body {
+  color: #333;
+  font-family: sans-serif;
+  min-width: 800px;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Raleway', sans-serif;
+}
+.centered {
+  width:100%;
+  text-align:center;
+}
+input {
+  display: block;
+  margin: 0 auto 0 auto;
+  height: 38px;
+  padding: 6px 12px;
+  font-size: 16px;
+  line-height: 1.428571429;
+  color: #555555;
+  vertical-align: middle;
+  background-color: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+  -webkit-transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+  transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+}
+input:focus {
+  border-color: #66afe9;
+  outline: 0;
+  -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+          box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+}
+
 /*
 index page
 vertical centering from
 http://blog.themeforest.net/tutorials/vertical-centering-with-css/
 */
-#floater  {float:left; height:50%; margin-bottom:-120px;}
-#top    {float:right; width:100%; text-align:center;}
-#content  {clear:both; height:240px; position:relative;}
+#floater  {
+  height:50%;
+  margin-bottom:-200px;
+  width:1px;
+}
+#content  {
+  height:240px;
+}
 
 /* search page */
+.flatten h1 {
+  display: inline-block;
+  margin: 2px 0 2px 0;
+}
+.flatten form {
+  display: inline-block;
+  margin: 0 0 0 30px;
+  position: relative;
+  top: -6px;
+}
+section { min-width: 600px; }
 .channel { padding-left: 40px; }
-.context:hover {
-  background-color: lightgray;
-}
 .match {
-  margin: 1em 0 1em 0;
-  cursor: pointer;
+  border-bottom: 1px #ddd inset;
 }
-.match:nth-child(odd) { background-color: #eee; }
+.before.expand { padding-top: 1em; }
+.after.expand { padding-bottom: 1em; }
+.expand:hover {
+  color: #666;
+  background-color: #f6f6f6;
+}
+.expand {
+  cursor: pointer;
+  color: #eee;
+  /*opacity: 0;*/
+  width: 100%;
+  text-align: center;
+  font-variant: small-caps;
+  /* make text unselectable */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+span.time {
+  display: inline-block;
+  width: 160px;
+  color: #66F;
+  font-size: smaller;
+  overflow-x: hidden;
+}
+span.sender {
+  font-family: 'Raleway', sans-serif;
+  display: inline-block;
+  width: 100px;
+  text-align: right;
+  overflow-x: hidden;
+}
+span.sender::after {
+  content: ":";
+}
+span.text {
+  display: block;
+  /* hack to get correct text wrapping for long lines */
+  position: relative;
+  top: -1.15em;
+  margin-bottom: -1.15em; /* to counteract top: -1.15em */
+  left: 280px; /* 280px = width of time + sender elements */
+  margin-right: 280px; /* to counteract left: 280px */
+}
+/*.match:nth-child(odd) { background-color: #eee; }*/
 /*.matching-line { background-color: aqua; }*/
 .highlight { background-color: yellow; }
 p { margin: 0; }
+hr {
+  border-bottom: 0;
+  border-top-color: #ddd;
+}
