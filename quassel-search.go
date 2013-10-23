@@ -25,11 +25,14 @@ import (
 
 type resultSet struct {
   Needle string
+  ChannelResults []channelResult
+}
+type channelResult struct {
+  Channel string
   Messages []message
 }
 type message struct {
   MessageId int
-  Channel string
   Time time.Time
   Sender string
   Text string
@@ -48,7 +51,8 @@ func searchResults(needle string) (resultSet) {
   }
   defer rows.Close()
 
-  results := resultSet{Needle: needle, Messages: make([]message, 0)}
+  results := resultSet{Needle: needle, ChannelResults: make([]channelResult, 0)}
+  channels := make(map[string][]message)
   for rows.Next() {
     var messageid, msgtype int
     var msgtime int64
@@ -57,14 +61,17 @@ func searchResults(needle string) (resultSet) {
     if msgtype == 1 {
       //fmt.Println(buffercname, msgtime, sender, msg)
       m := message{MessageId: messageid,
-                   Channel: buffercname,
                    Time: time.Unix(msgtime, 0),
                    Sender: sender,
                    Text: msg}
-      results.Messages = append(results.Messages, m)
+      channels[buffercname] = append(channels[buffercname], m)
     }
   }
-  fmt.Println("searched for ", needle, " got results: ", len(results.Messages))
+  for channel,messages := range channels {
+    cr := channelResult{Channel: channel, Messages: messages}
+    results.ChannelResults = append(results.ChannelResults, cr)
+  }
+  //fmt.Println("searched for ", needle, " got results: ", len(results.Messages))
   return results
 }
 
@@ -113,7 +120,6 @@ func messageContext(messageId int, linesToFetch int, direction int) []message {
     if msgtype == 1 {
       //fmt.Println(buffercname, msgtime, sender, msg)
       m := message{MessageId: messageid,
-                   Channel: buffercname,
                    Time: time.Unix(msgtime, 0),
                    Sender: sender,
                    Text: msg}

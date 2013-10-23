@@ -1,18 +1,22 @@
-// index page
-// vertical centering from
-// http://blog.themeforest.net/tutorials/vertical-centering-with-css/
+/*
+index page
+vertical centering from
+http://blog.themeforest.net/tutorials/vertical-centering-with-css/
+*/
 #floater  {float:left; height:50%; margin-bottom:-120px;}
 #top    {float:right; width:100%; text-align:center;}
 #content  {clear:both; height:240px; position:relative;}
 
-// search page
+/* search page */
+.channel { padding-left: 40px; }
 .context:hover {
   background-color: lightgray;
 }
 .match {
   margin: 1em 0 1em 0;
+  cursor: pointer;
 }
 .match:nth-child(odd) { background-color: #eee; }
-.matching-line { background-color: aqua; }
+/*.matching-line { background-color: aqua; }*/
 .highlight { background-color: yellow; }
 p { margin: 0; }

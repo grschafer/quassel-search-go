@@ -2,7 +2,7 @@
   $(document).ready(function() {
     var linesToFetch = 2;
     var needle = $('section.results').data('needle');
-    $('section.results').highlight(needle);
+    $('div.channel').highlight(needle);
 
     // compares 2 objects (e.g. in a sort call) using the specified key
     function cmp_key(key) {
@@ -39,7 +39,6 @@
           msgElem = $(this).children('.message').first().clone()
           //$(msgElem).data('messageid', msg.MessageId);
           $(msgElem).attr('data-messageid', msg.MessageId);
-          $(msgElem).children('.channel').text(msg.Channel);
           $(msgElem).children('.time').text(msg.Time);
           $(msgElem).children('.sender').text(msg.Sender);
           $(msgElem).children('.text').text(msg.Text);

@@ -14,18 +14,22 @@
 
 <section class="results" data-needle="{{ .Needle }}">
 <h2>Search results for {{ .Needle }}</h2>
-{{ range .Messages }}
-  <div class="match">
-    <div class="before context"></div>
-    <div class="matching-line">
-      <div class="message" data-messageid="{{ .MessageId }}">
-        <span class="channel">{{.Channel}}</span>
-        <span class="time">{{.Time}}</span>
-        <span class="sender">{{.Sender}}</span>
-        <span class="text">{{.Text}}</span>
+{{ range .ChannelResults }}
+  <h4>{{ .Channel }}</h4>
+  <div class="channel">
+  {{ range .Messages }}
+    <div class="match">
+      <div class="before context"></div>
+      <div class="matching-line">
+        <div class="message" data-messageid="{{ .MessageId }}">
+          <span class="time">{{.Time}}</span>
+          <span class="sender">{{.Sender}}</span>
+          <span class="text">{{.Text}}</span>
+        </div>
       </div>
+      <div class="after context"></div>
     </div>
-    <div class="after context"></div>
+  {{ end }}
   </div>
 {{ end }}
 </section>
