@@ -23,6 +23,7 @@ import (
   "database/sql"
   _ "github.com/mattn/go-sqlite3"
   _ "github.com/lib/pq"
+  "code.google.com/p/gcfg"
 )
 
 type resultSet struct {
@@ -189,6 +190,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 func ajaxContextHandler(w http.ResponseWriter, r *http.Request) {
   // get request data: direction, from msgId, # lines
   // buffer to get data from is implied in msgId
+  // TODO: error handling!!
   fmt.Println("ajaxContextHandler")
   messageId, _ := strconv.Atoi(r.FormValue("messageId"))
   linesToFetch, _ := strconv.Atoi(r.FormValue("linesToFetch"))
@@ -208,23 +210,50 @@ func ajaxContextHandler(w http.ResponseWriter, r *http.Request) {
 
 
 // Main
+type DbConfig struct {
+  DbType string // postgres or sqlite3
+  DbPath string // path to database file (sqlite only)
+  DbName string // name of database (postgres only)
+  DbUser string // name of database user (postgres only)
+  DbPass string // password of database user (postgres only)
+}
+type WebserverConfig struct {
+  Port int // port to serve log-search website at (default: 4243)
+}
+type Configuration struct {
+  Database DbConfig
+  Webserver WebserverConfig
+}
 
+// TODO: config file path from cmdline flags?
 func main() {
-  fmt.Println("don't commit db password to repo!")
   var err error
-  db, err = sql.Open("sqlite3", "/var/lib/quassel/quassel-storage.sqlite")
-  //db, err = sql.Open("postgres", "user=quassel password=secret dbname=quassel")
+  var configuration Configuration
+  err = gcfg.ReadFileInto(&configuration, "conf.gcfg")
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  var dataSourceName string
+  switch configuration.Database.DbType {
+  case "sqlite3":
+    dataSourceName = configuration.Database.DbPath
+  case "postgres":
+    dataSourceName = fmt.Sprintf("user=%s password=%s dbname=%s",
+      configuration.Database.DbUser, configuration.Database.DbPass, configuration.Database.DbName)
+  default:
+    log.Fatalf("%v not a recognized database type (sqlite3 or postgres)", configuration.Database.DbType)
+  }
+
+  db, err = sql.Open(configuration.Database.DbType, dataSourceName)
   if err != nil {
     log.Fatal(err)
   }
   defer db.Close()
 
-  res := searchResults("blah")
-  fmt.Println(res)
-
   http.HandleFunc("/", indexHandler)
   http.HandleFunc("/search/", searchHandler)
   http.HandleFunc("/context/", ajaxContextHandler)
   http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-  http.ListenAndServe(":4243", nil)
+  http.ListenAndServe(fmt.Sprintf(":%d", configuration.Webserver.Port), nil)
 }
