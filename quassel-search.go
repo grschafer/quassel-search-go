@@ -11,6 +11,7 @@ https://github.com/mattn/go-sqlite3/blob/master/_example/simple/simple.go
 package main
 
 import (
+  "flag"
   "regexp"
   "strconv"
   "encoding/json"
@@ -225,14 +226,22 @@ type Configuration struct {
   Webserver WebserverConfig
 }
 
+func panicIfError(err error) {
+  if err != nil {
+    panic(err)
+  }
+}
+
 // TODO: config file path from cmdline flags?
 func main() {
+  var cfgPath = flag.String("config", "conf.gcfg", "Path to config file")
+  flag.Parse()
+  fmt.Println("Reading config from", *cfgPath)
+
   var err error
   var configuration Configuration
-  err = gcfg.ReadFileInto(&configuration, "conf.gcfg")
-  if err != nil {
-    log.Fatal(err)
-  }
+  err = gcfg.ReadFileInto(&configuration, *cfgPath)
+  panicIfError(err)
 
   var dataSourceName string
   switch configuration.Database.DbType {
@@ -240,20 +249,24 @@ func main() {
     dataSourceName = configuration.Database.DbPath
   case "postgres":
     dataSourceName = fmt.Sprintf("user=%s password=%s dbname=%s",
-      configuration.Database.DbUser, configuration.Database.DbPass, configuration.Database.DbName)
+      configuration.Database.DbUser,
+      configuration.Database.DbPass,
+      configuration.Database.DbName)
   default:
     log.Fatalf("%v not a recognized database type (sqlite3 or postgres)", configuration.Database.DbType)
   }
 
   db, err = sql.Open(configuration.Database.DbType, dataSourceName)
-  if err != nil {
-    log.Fatal(err)
-  }
+  panicIfError(err)
   defer db.Close()
+  err = db.Ping()
+  panicIfError(err)
 
   http.HandleFunc("/", indexHandler)
   http.HandleFunc("/search/", searchHandler)
   http.HandleFunc("/context/", ajaxContextHandler)
   http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-  http.ListenAndServe(fmt.Sprintf(":%d", configuration.Webserver.Port), nil)
+  fmt.Println("Starting to listen on port", configuration.Webserver.Port)
+  err = http.ListenAndServe(fmt.Sprintf(":%d", configuration.Webserver.Port), nil)
+  panicIfError(err)
 }
