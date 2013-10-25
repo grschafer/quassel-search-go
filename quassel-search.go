@@ -162,6 +162,9 @@ func messageContext(messageId int, linesToFetch int, direction int) []message {
 }
 
 // ===== Web server =====
+// matches "/", "/search/", and "/context/"
+var validPath = regexp.MustCompile(`^/($|(search|context)\/)`)
+
 func tmplPaths(tmpl ...string) []string {
   paths := make([]string, len(tmpl))
   for i, p := range tmpl {
@@ -208,11 +211,11 @@ func ajaxContextHandler(w http.ResponseWriter, r *http.Request) {
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
   return func(w http.ResponseWriter, r *http.Request) {
-    //m := validPath.FindStringSubmatch(r.URL.Path)
-    //if m == nil {
-    //  http.NotFound(w, r)
-    //  return
-    //}
+    isValidPath := validPath.MatchString(r.URL.Path)
+    if !isValidPath {
+      http.NotFound(w, r)
+      return
+    }
 
     // recover from handler panics
     defer func() {
