@@ -105,6 +105,7 @@ section { min-width: 600px; }
 }
 span.time {
   display: inline-block;
+  float: left;
   width: 160px;
   color: #66F;
   font-size: smaller;
@@ -113,6 +114,7 @@ span.time {
 span.sender {
   font-family: 'Raleway', sans-serif;
   display: inline-block;
+  float: left;
   width: 100px;
   text-align: right;
   overflow-x: hidden;
@@ -123,11 +125,7 @@ span.sender::after {
 span.text {
   display: block;
   /* hack to get correct text wrapping for long lines */
-  position: relative;
-  top: -1.15em;
-  margin-bottom: -1.15em; /* to counteract top: -1.15em */
-  left: 280px; /* 280px = width of time + sender elements */
-  margin-right: 280px; /* to counteract left: 280px */
+  padding-left: 280px;
 }
 /*.match:nth-child(odd) { background-color: #eee; }*/
 /*.matching-line { background-color: aqua; }*/
