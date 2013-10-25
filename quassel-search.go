@@ -63,6 +63,11 @@ type message struct {
   Sender sender
   Text string
 }
+type frontpageStats struct {
+  NumMessages int
+  NumSenders int
+  NumChannels int
+}
 
 // ===== Database =====
 var db *sql.DB
@@ -81,6 +86,7 @@ func messagesFromRows(rows *sql.Rows) chan message {
       var buffercname, msgSender, msg string
       err := rows.Scan(&messageid, &buffercname, &msgSender, &msgTime, &msg)
       panicIfError(err)
+
       // sqlite returns date as int64, postgres returns as time.Time
       switch msgTime := msgTime.(type) {
       case int64:
@@ -88,8 +94,9 @@ func messagesFromRows(rows *sql.Rows) chan message {
       case time.Time:
         convertedTime = msgTime
       default:
-        panic(fmt.Errorf("unrecognized datetime format, corrupt db record?"))
+        panic(fmt.Errorf("unrecognized datetime format for backlog messageid=%d?", messageid))
       }
+
       m := message{MessageId: messageid,
                    Time: convertedTime,
                    Channel: buffercname,
@@ -117,6 +124,27 @@ func searchResults(needle string) resultSet {
     results.ChannelResults = append(results.ChannelResults, cr)
   }
   return results
+}
+
+// returns counts for # messages, # users, # channels
+func getFrontpageStats() frontpageStats {
+  var stats frontpageStats
+  var row *sql.Row
+  var err error
+
+  row = db.QueryRow("select count(*) from backlog")
+  err = row.Scan(&stats.NumMessages)
+  panicIfError(err)
+
+  row = db.QueryRow("select count(*) from sender")
+  err = row.Scan(&stats.NumSenders)
+  panicIfError(err)
+
+  row = db.QueryRow("select count(*) from buffer")
+  err = row.Scan(&stats.NumChannels)
+  panicIfError(err)
+
+  return stats
 }
 
 // direction in which to fetch contextual messages
@@ -180,7 +208,8 @@ func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-  renderTemplate(w, "index", nil)
+  stats := getFrontpageStats()
+  renderTemplate(w, "index", stats)
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
