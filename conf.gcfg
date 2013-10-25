@@ -2,11 +2,10 @@
 
 [database]
 ; can be either sqlite3 or postgres
-dbtype = sqlite3
+;dbtype = sqlite3
 ;dbtype = postgres
 
 ; path to the database file (sqlite3 only)
-dbpath = ./quassel-storage.sqlite
 ;dbpath = /var/lib/quassel/quassel-storage.sqlite
 
 ; name of the database containing quassel data (postgres only)
