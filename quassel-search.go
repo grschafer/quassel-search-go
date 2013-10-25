@@ -27,6 +27,15 @@ import (
   "code.google.com/p/gcfg"
 )
 
+func panicIfError(err error) {
+  if err != nil {
+    panic(err)
+  }
+}
+
+
+// ===== Models =====
+
 type resultSet struct {
   Needle string
   ChannelResults []channelResult
@@ -41,9 +50,7 @@ type sender struct {
 }
 var re = regexp.MustCompile("(.*)!~?(.*)")
 func makeSender(rawSender string) sender {
-  fmt.Println(rawSender)
   m := re.FindStringSubmatch(rawSender)
-  fmt.Println(m)
   if len(m) == 3 {
     return sender{m[1], m[2]}
   }
@@ -57,9 +64,10 @@ type message struct {
   Text string
 }
 
-// Database
+// ===== Database =====
 var db *sql.DB
 
+// messagesFromRows returns a synchronous channel of messages
 func messagesFromRows(rows *sql.Rows) chan message {
   messages := make(chan message)
 
@@ -72,15 +80,15 @@ func messagesFromRows(rows *sql.Rows) chan message {
       var convertedTime time.Time
       var buffercname, msgSender, msg string
       err := rows.Scan(&messageid, &buffercname, &msgSender, &msgTime, &msg)
-      if err != nil {
-        log.Print(err)
-      }
+      panicIfError(err)
       // sqlite returns date as int64, postgres returns as time.Time
       switch msgTime := msgTime.(type) {
       case int64:
         convertedTime = time.Unix(msgTime, 0)
       case time.Time:
         convertedTime = msgTime
+      default:
+        panic(fmt.Errorf("unrecognized datetime format, corrupt db record?"))
       }
       m := message{MessageId: messageid,
                    Time: convertedTime,
@@ -94,14 +102,10 @@ func messagesFromRows(rows *sql.Rows) chan message {
   return messages
 }
 
-// TODO: return error
-func searchResults(needle string) (resultSet) {
+func searchResults(needle string) resultSet {
   sql_needle := "%" + needle + "%"
   rows, err := db.Query("select messageid,buffercname,sender,time,message from backlog natural join sender natural join buffer where type = 1 and message like $1", sql_needle)
-  // TODO: more error checking! return error to handler
-  if err != nil {
-    log.Fatal(err)
-  }
+  panicIfError(err)
 
   results := resultSet{Needle: needle, ChannelResults: make([]channelResult, 0)}
   channels := make(map[string][]message)
@@ -112,30 +116,31 @@ func searchResults(needle string) (resultSet) {
     cr := channelResult{Channel: channel, Messages: messages}
     results.ChannelResults = append(results.ChannelResults, cr)
   }
-  //fmt.Println("searched for ", needle, " got results: ", len(results.Messages))
   return results
 }
 
-/*
-TODO: make these into constants
-direction values: -1 = before, 1 = after
-*/
+// direction in which to fetch contextual messages
+const (
+  BeforeDirection = -1
+  AfterDirection = 1
+)
 var dirComparators = map[int]string{
-  -1: "<",
-  1: ">",
+  BeforeDirection: "<",
+  AfterDirection: ">",
 }
 var dirSort = map[int]string{
-  -1: "desc",
-  1: "asc",
+  BeforeDirection: "desc",
+  AfterDirection: "asc",
 }
+
 func messageContext(messageId int, linesToFetch int, direction int) []message {
+  if direction != -1 && direction != 1 {
+    panic(fmt.Errorf("direction argument must be 1 or -1"))
+  }
   row := db.QueryRow("select bufferid from backlog where messageid = $1", messageId)
   var bufferid int
   err := row.Scan(&bufferid)
-  if err != nil {
-    // TODO: return error (ie - no rows in result set)
-    log.Fatal(err)
-  }
+  panicIfError(err)
 
   query := fmt.Sprintf(`select messageid,buffercname,sender,time,message
                         from backlog
@@ -147,9 +152,7 @@ func messageContext(messageId int, linesToFetch int, direction int) []message {
                         order by messageid %s
                         limit $3`, dirComparators[direction], dirSort[direction])
   rows, err := db.Query(query, messageId, bufferid, linesToFetch)
-  if err != nil {
-    log.Fatal(err)
-  }
+  panicIfError(err)
 
   results := make([]message, 0)
   for m := range messagesFromRows(rows) {
@@ -158,59 +161,76 @@ func messageContext(messageId int, linesToFetch int, direction int) []message {
   return results
 }
 
-// Web server
-// TODO: accept var num args, return list of all
-func tmplPath(tmpl string) string {
-  return path.Join("templates", tmpl)
+// ===== Web server =====
+func tmplPaths(tmpl ...string) []string {
+  paths := make([]string, len(tmpl))
+  for i, p := range tmpl {
+    paths[i] = path.Join("templates", p)
+  }
+  return paths
 }
-var templatePaths = []string{tmplPath("index.html"), tmplPath("search.html")}
+var templatePaths = tmplPaths("index.html", "search.html")
 var templates = template.Must(template.ParseFiles(templatePaths...))
 func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
   err := templates.ExecuteTemplate(w, tmpl + ".html", data)
-  if err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-  }
+  panicIfError(err)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-  fmt.Println("indexHandler")
   renderTemplate(w, "index", nil)
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-  fmt.Println("searchHandler")
   needle := r.FormValue("n")
-  // call db stuff
+  if needle == "" {
+    panic(fmt.Errorf("no search term provided"))
+  }
   results := searchResults(needle)
-  fmt.Println(r)
-  fmt.Println(results)
-  fmt.Println()
   renderTemplate(w, "search", results)
 }
 
 func ajaxContextHandler(w http.ResponseWriter, r *http.Request) {
-  // get request data: direction, from msgId, # lines
-  // buffer to get data from is implied in msgId
-  // TODO: error handling!!
-  fmt.Println("ajaxContextHandler")
-  messageId, _ := strconv.Atoi(r.FormValue("messageId"))
-  linesToFetch, _ := strconv.Atoi(r.FormValue("linesToFetch"))
-  direction, _ := strconv.Atoi(r.FormValue("direction"))
-  // call db stuff
+  messageId, err := strconv.Atoi(r.FormValue("messageId"))
+  panicIfError(err)
+  linesToFetch, err := strconv.Atoi(r.FormValue("linesToFetch"))
+  panicIfError(err)
+  direction, err := strconv.Atoi(r.FormValue("direction"))
+  panicIfError(err)
+
   results := messageContext(messageId, linesToFetch, direction)
-  fmt.Println(r)
-  fmt.Println(results)
   jsres, err := json.Marshal(results)
-  fmt.Println("err:", err)
-  fmt.Println(jsres)
-  fmt.Println()
+  panicIfError(err)
+
   w.Header().Set("Content-Type", "application/json")
-  w.Write(jsres)
+  _, err = w.Write(jsres)
+  panicIfError(err)
+}
+
+func makeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+  return func(w http.ResponseWriter, r *http.Request) {
+    //m := validPath.FindStringSubmatch(r.URL.Path)
+    //if m == nil {
+    //  http.NotFound(w, r)
+    //  return
+    //}
+
+    // recover from handler panics
+    defer func() {
+      if r := recover(); r != nil {
+        err, ok := r.(error)
+        if !ok {
+          log.Fatalf("panic didn't return a string? got %T with value: %v", r, r)
+        }
+        log.Print(err.Error())
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+      }
+    }()
+    fn(w, r)
+  }
 }
 
 
-
-// Main
+// ===== Config Structs =====
 type DbConfig struct {
   DbType string // postgres or sqlite3
   DbPath string // path to database file (sqlite only)
@@ -226,17 +246,11 @@ type Configuration struct {
   Webserver WebserverConfig
 }
 
-func panicIfError(err error) {
-  if err != nil {
-    panic(err)
-  }
-}
-
-// TODO: config file path from cmdline flags?
+// ===== Main =====
 func main() {
   var cfgPath = flag.String("config", "conf.gcfg", "Path to config file")
   flag.Parse()
-  fmt.Println("Reading config from", *cfgPath)
+  log.Print("Reading config from ", *cfgPath)
 
   var err error
   var configuration Configuration
@@ -262,11 +276,11 @@ func main() {
   err = db.Ping()
   panicIfError(err)
 
-  http.HandleFunc("/", indexHandler)
-  http.HandleFunc("/search/", searchHandler)
-  http.HandleFunc("/context/", ajaxContextHandler)
+  http.HandleFunc("/", makeHandler(indexHandler))
+  http.HandleFunc("/search/", makeHandler(searchHandler))
+  http.HandleFunc("/context/", makeHandler(ajaxContextHandler))
   http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-  fmt.Println("Starting to listen on port", configuration.Webserver.Port)
+  log.Print("Starting to listen on port ", configuration.Webserver.Port)
   err = http.ListenAndServe(fmt.Sprintf(":%d", configuration.Webserver.Port), nil)
   panicIfError(err)
 }
