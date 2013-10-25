@@ -61,6 +61,23 @@ http://blog.themeforest.net/tutorials/vertical-centering-with-css/
   top: -6px;
 }
 section { min-width: 600px; }
+.results h4 {
+  margin: 0;
+  padding: 1.33em 0 1.33em 0;
+  cursor: pointer;
+}
+.results h4:hover {
+  background-color: #f6f6f6;
+}
+.results h4::after {
+  content: "collapse";
+  font-variant: small-caps;
+  float: right;
+  color: #eee;
+}
+.results h4:hover::after { color: #666; }
+.results h4.collapsed::after { content: "expand"; }
+
 .channel { padding-left: 40px; }
 .match {
   border-bottom: 1px #ddd inset;
