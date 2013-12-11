@@ -103,6 +103,9 @@ section { min-width: 600px; }
   -ms-user-select: none;
   user-select: none;
 }
+div.message {
+  margin: 1 1 1 1;
+}
 span.time {
   display: inline-block;
   float: left;
