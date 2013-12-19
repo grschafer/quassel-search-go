@@ -1,0 +1,24 @@
+; Lines that begin with ; are comments
+
+[database]
+; can be either sqlite3 or postgres
+;dbtype = sqlite3
+;dbtype = postgres
+dbtype = {{ dbtype }}
+
+; path to the database file (sqlite3 only)
+dbpath = /var/lib/quassel/quassel-storage.sqlite
+
+; name of the database containing quassel data (postgres only)
+;dbname = quassel
+
+; name of the database user with access to the above database (postgres only)
+;dbuser = quassel
+
+; password of the above database user (postgres only)
+;dbpass = secret
+
+[webserver]
+; port to serve the log-search website at
+;port = 4243
+port = {{ webport }}
