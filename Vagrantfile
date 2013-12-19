@@ -12,6 +12,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Every Vagrant virtual environment requires a box to build off of.
   config.vm.box = "precise32"
   config.vm.box_url = "http://files.vagrantup.com/precise32.box"
+  config.vm.network :forwarded_port, guest: 4242, host: 4242
   config.vm.network :forwarded_port, guest: 4243, host: 4243
 
   config.vm.provision :ansible do |ansible|

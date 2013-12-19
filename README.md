@@ -5,9 +5,22 @@
 This project was inspired by a friend's observation about Quassel's lack of backlog search (without having to scroll up a lot to load historical messages for a single channel) and my recent attendance of a Go talk. It was a fun small-scope project for learning Go.
 
 
-## To Run
+## New Install Instructions (Vagrant/Ansible)
 
-**Note: Running this program shows your IRC logs (including private channel messages) on port 4243 by default. If you make this program/port externally visible then anyone will be able to see all your messages.**
+These instructions create a local VM with vagrant, install quassel-core and quassel-search-go, and run both.
+
+0. Install [vagrant](http://www.vagrantup.com/) and [ansible](http://www.ansibleworks.com/).
+1. Run `vagrant up` in the repo directory (this should also run the ansible provisioning, if not, run `vagrant provision`)
+    1. Give `vagrant` as the sudo password
+2. Connect to the core at localhost:4242 with a quassel client and follow the configuration wizard.
+    1. Currently only sqlite is supported as a backend. Postgres coming soon, maybe.
+    2. If you visit localhost:4243 before completing the above step, you'll probably just get a 500 response because tables haven't been made in the db yet.
+3. Visit localhost:4243 and search your quassel logs!
+
+
+## Old Install Instructions
+
+**Note: Running this program shows your IRC logs (including private channel messages) on port 4243 by default. If you make this program/port externally visible then anyone will be able to see all your messages. An alternative is to ssh tunnel (`ssh -L 4243:<remote hostname or ip>:4243 <user>@<remote hostname or ip>`) so that traffic to localhost:4243 will go to the remote server's port 4243.**
 
 Try the appropriate binary if you're on linux (in which case skip to step 3). Otherwise, follow the first few steps to compile it yourself.
 
@@ -22,13 +35,6 @@ Try the appropriate binary if you're on linux (in which case skip to step 3). Ot
     * Note: If you're using sqlite3, then you will probably need to run the binary as the quassel user with a command like the following:
 
         ```sudo su - quasselcore -s "/bin/sh" -c "cd /path/to/binary; ./quassel-search-go"```
-
-
-## Development Potential Todos
-
-1. Add authentication (http basic with TLS?)
-2. System startup script?
-3. Cross-compile binaries?
 
 
 ## Acknowledgements

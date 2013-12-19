@@ -3,107 +3,59 @@
 
 - name: install quassel
   hosts: all
+  sudo: yes
   tasks:
 
     - name: install quasselcore
       apt: pkg=quassel-core state=latest
-      sudo: yes
+
+    - name: run quasselcore
+      service: name=quasselcore state=started enabled=yes
+
+    - name: give sqlite3 db to quasselcore user
+      file: path=/var/lib/quassel/quassel-storage.sqlite owner=quasselcore group=quassel
 
     - name: open ufw ports for quasselcore, quassel-search-go
       command: ufw allow {{ item }}
-      sudo: yes
       with_items:
         - 4242
         - 4243
 
-- name: install golang
-  hosts: all
-  vars:
-    goversion: go1.2.linux-386
-    gofile: "{{ goversion }}.tar.gz"
-  tasks:
-
-    - name: download {{ goversion }}
-      command: wget https://go.googlecode.com/files/{{ gofile }} chdir=/tmp creates=/tmp/{{ gofile }}
-
-    - name: untargz {{ gofile }}
-      command: tar -C /usr/local -xzf /tmp/{{ gofile }} creates=/usr/local/go
-      sudo: yes
-
-    - name: ensure zsh profile dir exists
-      file: path=/etc/zsh state=directory
-      sudo: yes
-
-    - name: ensure bash/zsh profiles exist
-      file: path={{ item }} state=touch
-      sudo: yes
-      with_items:
-        - /etc/profile
-        - /etc/zsh/zprofile
-
-
-    - name: put go binary on bash/zsh paths
-      lineinfile:
-        dest={{ item }}
-        regexp="^export PATH=.PATH:\/usr\/local\/go\/bin"
-        line="export PATH=$PATH:/usr/local/go/bin"
-        state=present
-      sudo: yes
-      with_items:
-        - /etc/profile
-        - /etc/zsh/zprofile
-
 - name: setup quassel-search-go
   hosts: all
+  sudo: yes
   vars:
-    installdir: /usr/local/gocode/src/quassel-search-go
+    installdir: /usr/local/quassel-search-go
+
+    # can be sqlite3 or postgres
     dbtype: sqlite3
+
+    # port that the web site runs on
+    # TODO: extract this to group_vars? so it can be used above
     webport: 4243
+
+    platforms:
+      i386: 386
+      x86_64: amd64
+    platform: "{{ platforms[ansible_architecture] }}"
   tasks:
-
-    - name: set up gopath directory
-      file: path={{ installdir }} state=directory
-      sudo: yes
-
-    - name: put go binary on bash/zsh paths
-      lineinfile:
-        dest={{ item }}
-        regexp="^export GOPATH=\/usr\/local\/gocode"
-        line="export GOPATH=/usr/local/gocode"
-        state=present
-      sudo: yes
-      with_items:
-        - /etc/profile
-        - /etc/zsh/zprofile
 
     - name: get quassel-search-go repo
       git:
         repo=https://github.com/grschafer/quassel-search-go.git
         dest={{ installdir }}
-      sudo: yes
 
-    - name: get quassel-search-go dependencies
-      command: '"go get {{ item }}" chdir={{ installdir }}'
-      sudo: yes
-      with_items:
-        - "github.com/mattn/go-sqlite3"
-        - "github.com/lib/pq"
-        - "code.google.com/p/gcfg"
-
-    - name: build quassel-search-go
-      command: go build chdir={{ installdir }}
+    - name: set binary executable
+      file: path={{ installdir }}/quassel-search-go-{{ platform }} mode=775
 
     - name: copy upstart conf
-      copy:
-        src=files/quassel-search-go.conf
+      template:
+        src=templates/quassel-search-go.conf.j2
         dest=/etc/init/quassel-search-go.conf
         mode=0644
-      sudo: yes
 
     - name: set quassel-search-go settings
       template: src=templates/conf.gcfg.j2 dest={{ installdir }}/conf.gcfg
-      sudo: yes
 
     - name: start quassel-search-go service
       service: name=quassel-search-go state=started enabled=yes
-      sudo: yes

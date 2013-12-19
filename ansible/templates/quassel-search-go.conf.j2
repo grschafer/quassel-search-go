@@ -1,4 +1,4 @@
-description "Service for searching quassel logs"
+description "Web server for searching quassel logs"
 
 #start on (local-filesystems and net-device-up IFACE=eth0)
 #stop on shutdown
@@ -13,8 +13,8 @@ respawn limit 5 60 #try 5 times within 60 seconds, or giveup
 
 script
     echo $$ > /var/run/quassel-search-go.pid
-    chdir /usr/local/quassel-search-go
-    exec sudo /usr/local/quassel-search-go/quassel-search-go-amd64 >> /var/log/quassel-search-go.log 2>&1
+    chdir {{ installdir }}
+    exec sudo {{ installdir }}/quassel-search-go-{{ platform }}  >> /var/log/quassel-search-go.log 2>&1
 end script
 
 pre-start script
