@@ -9,7 +9,7 @@ This project was inspired by a friend's observation about Quassel's lack of back
 
 These instructions create a local VM with vagrant, install quassel-core and quassel-search-go, and run both.
 
-0. Install [vagrant](http://www.vagrantup.com/) and [ansible](http://www.ansibleworks.com/).
+0. Install [vagrant](http://www.vagrantup.com/) and [ansible](https://docs.ansible.com/ansible/intro_installation.html).
 1. Run `vagrant up` in the repo directory (this should also run the ansible provisioning, if not, run `vagrant provision`)
     1. Give `vagrant` as the sudo password
 2. Connect to the core at localhost:4242 with a quassel client and follow the configuration wizard.
